@@ -103,6 +103,7 @@ func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
 	logger.Formatter = GetFormatter(DefaultLogFormat)
 	logger.SetLevel(LevelStringToLogrusLevel[DefaultLogLevelStr])
+	logger.SetReportCaller(true)
 	return logger
 }
 

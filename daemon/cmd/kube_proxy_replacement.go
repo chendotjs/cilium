@@ -230,6 +230,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 	}
 
+	log.Infof("-------------- EnableHostReachableServices : %v", option.Config.EnableHostReachableServices)
 	if option.Config.EnableHostReachableServices {
 		// Try to auto-load IPv6 module if it hasn't been done yet as there can
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
@@ -260,10 +261,12 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
 			option.Config.EnableHostReachableServices = false
+			log.Warn("--------- EnableHostReachableServices is set to false due to both tcp and udp false")
 		}
 	} else {
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
+		log.Warn("----------- EnableHostServicesTCP and EnableHostServicesUDP Disabling the feature")
 	}
 
 	if option.Config.EnableSessionAffinity {
@@ -378,6 +381,8 @@ func initKubeProxyReplacementOptions() (strict bool) {
 func probeCgroupSupportTCP(strict, ipv4 bool) {
 	var err error
 
+	log.Info("-------- probeCgroupSupportTCP runs...")
+
 	if ipv4 {
 		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT)
 	} else {
@@ -395,12 +400,15 @@ func probeCgroupSupportTCP(strict, ipv4 bool) {
 		} else {
 			option.Config.EnableHostServicesTCP = false
 			scopedLog.Warn(msg + " Disabling the feature.")
+			log.Warn("--------- EnableHostServicesTCP Disabling the feature")
 		}
 	}
 }
 
 func probeCgroupSupportUDP(strict, ipv4 bool) {
 	var err error
+
+	log.Info("--------- probeCgroupSupportUDP runs...")
 
 	if ipv4 {
 		err = bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG)
@@ -419,6 +427,7 @@ func probeCgroupSupportUDP(strict, ipv4 bool) {
 		} else {
 			option.Config.EnableHostServicesUDP = false
 			scopedLog.Warn(msg + " Disabling the feature.")
+			log.Warn("---------- EnableHostServicesUDP Disabling the feature")
 		}
 	}
 }

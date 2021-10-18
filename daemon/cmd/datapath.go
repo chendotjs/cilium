@@ -72,7 +72,10 @@ func (d *Daemon) createNodeConfigHeaderfile() error {
 	if err = d.datapath.WriteNodeConfig(f, &d.nodeDiscovery.LocalConfig); err != nil {
 		log.WithError(err).WithField(logfields.Path, nodeConfigPath).Fatal("Failed to write node configuration file")
 		return err
+	} else {
+		log.Infof("--------- WriteNodeConfig to %v done", nodeConfigPath)
 	}
+
 	return nil
 }
 

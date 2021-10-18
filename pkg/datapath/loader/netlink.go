@@ -81,6 +81,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 	// FIXME: Replace cilium-map-migrate with Golang map migration
 	cmd := exec.CommandContext(ctx, "cilium-map-migrate", "-s", objPath)
 	cmd.Env = bpf.Environment()
+	log.Infof("--------- replaceDatapath map: %v", cmd.String())
 	if _, err = cmd.CombinedOutput(log, true); err != nil {
 		return err
 	}
@@ -110,6 +111,7 @@ func replaceDatapath(ctx context.Context, ifName, objPath, progSec, progDirectio
 		}
 	}
 	cmd = exec.CommandContext(ctx, loaderProg, args...).WithFilters(libbpfFixupMsg)
+	log.Infof("--------- replaceDatapath netlink: %v", cmd.String())
 	_, err = cmd.CombinedOutput(log, true)
 	if err != nil {
 		return fmt.Errorf("Failed to load prog with %s: %w", loaderProg, err)

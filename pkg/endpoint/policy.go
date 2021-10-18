@@ -374,6 +374,8 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	tmpDir := e.NextDirectoryPath()
 	context.datapathRegenerationContext.nextDir = tmpDir
 
+	log.Infof("-------------- regenerate: bpf build dir: %v, %v", origDir, tmpDir)
+
 	// Remove an eventual existing temporary directory that has been left
 	// over to make sure we can start the build from scratch
 	if err := e.removeDirectory(tmpDir); err != nil && !os.IsNotExist(err) {
@@ -419,6 +421,8 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.Path: failDir,
 		}).Warn("generating BPF for endpoint failed, keeping stale directory.")
+
+		log.Errorf("-------------- regenerateBPF failed: %v", err)
 
 		// Remove an eventual existing previous failure directory
 		e.removeDirectory(failDir)

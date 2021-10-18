@@ -242,6 +242,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 	}
 
 	cfg.stats.BpfCompilation.Start()
+	log.Infof("--------- cache build compile template: %v", templatePath)
 	err = compileTemplate(ctx, templatePath, isHost)
 	cfg.stats.BpfCompilation.End(err == nil)
 	if err != nil {

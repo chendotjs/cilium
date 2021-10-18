@@ -228,6 +228,8 @@ func pidFromProcess(proc *os.Process) string {
 // intermediate representation, to the output specified in the prog's info.
 func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool, compileArgs ...string) error {
 	compileCmd, cancelCompile := exec.WithCancel(ctx, compiler, compileArgs...)
+	log.Infof("---------- compile cmd: %v", compileCmd.String())
+
 	defer cancelCompile()
 	compilerStdout, compilerStderr, err := prepareCmdPipes(compileCmd)
 	if err != nil {
@@ -243,6 +245,8 @@ func compileAndLink(ctx context.Context, prog *progInfo, dir *directoryInfo, deb
 	linkArgs = append(linkArgs, progLDFlags(prog, dir)...)
 
 	linkCmd := exec.CommandContext(ctx, linker, linkArgs...)
+	log.Infof("---------- link cmd: %v", linkCmd.String())
+
 	linkCmd.Stdin = compilerStdout
 	if err := compileCmd.Start(); err != nil {
 		return fmt.Errorf("Failed to start command %s: %s", compileCmd.Args, err)
@@ -320,6 +324,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo) (err error
 	}).Debug("Launching compiler")
 	if prog.OutputType == outputSource {
 		compileCmd := exec.CommandContext(ctx, compiler, args...)
+		log.Infof("---------- compile cmd: %v", compileCmd.String())
 		_, err = compileCmd.CombinedOutput(log, true)
 	} else {
 		switch prog.OutputType {
@@ -360,12 +365,16 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 		linker:   string(linkerVersion),
 	}).Debug("Compiling datapath")
 
+	logger.Infof("----------- compilerVersion: %v", string(compilerVersion))
+	logger.Infof("----------- linkerVersion: %v", string(linkerVersion))
+
 	// Write out assembly and preprocessing files for debugging purposes
 	progs := debugProgs
 	if isHost {
 		progs = debugHostProgs
 	}
 	for _, p := range progs {
+		logger.Infof("---------- **** preprocessing %+v", *p)
 		if err := compile(ctx, p, dirs); err != nil {
 			// Only log an error here if the context was not canceled or not
 			// timed out; this log message should only represent failures
@@ -383,6 +392,7 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost bool, logg
 	if isHost {
 		prog = hostEpProg
 	}
+	logger.Infof("---------- **** compiling %+v", *prog)
 	if err := compile(ctx, prog, dirs); err != nil {
 		// Only log an error here if the context was not canceled or not timed
 		// out; this log message should only represent failures with respect to

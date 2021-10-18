@@ -438,7 +438,10 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 	}
 	defer template.Close()
 
+	log.Infof("---------- CompileOrLoad templatePath: %v", templatePath)
+
 	symPath := path.Join(ep.StateDir(), defaults.TemplatePath)
+	log.Infof("---------- CompileOrLoad symPath: %v", symPath)
 	if _, err := os.Stat(symPath); err == nil {
 		if err = os.RemoveAll(symPath); err != nil {
 			return &os.PathError{
@@ -454,6 +457,7 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 			Err:  err,
 		}
 	}
+	log.Infof("---------- CompileOrLoad new %v link to %v", symPath, templatePath)
 	if err := os.Symlink(templatePath, symPath); err != nil {
 		return &os.PathError{
 			Op:   fmt.Sprintf("Failed to create symlink to %s", templatePath),
@@ -474,6 +478,9 @@ func (l *Loader) CompileOrLoad(ctx context.Context, ep datapath.Endpoint, stats 
 		return err
 	}
 	stats.BpfWriteELF.End(err == nil)
+
+	// Ref: https://github.com/cilium/cilium/pull/7095
+	log.Infof("---------- CompileOrLoad write elf to %v", dstPath)
 
 	return l.ReloadDatapath(ctx, ep, stats)
 }

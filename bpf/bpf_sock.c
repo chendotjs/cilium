@@ -14,6 +14,7 @@
 #include "lib/lb.h"
 #include "lib/eps.h"
 #include "lib/metrics.h"
+#include "lib/dbg.h"
 
 #define SYS_REJECT	0
 #define SYS_PROCEED	1
@@ -354,6 +355,8 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!svc)
 		return -ENXIO;
 
+	printk("lb4_lookup_service hits svc: %x %x\n", key.address, key.dport);
+
 	/* Do not perform service translation for external IPs
 	 * that are not a local address because we don't want
 	 * a k8s service to easily do MITM attacks for a public
@@ -399,6 +402,10 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 		backend_id = backend_slot->backend_id;
 		backend = __lb4_lookup_backend(backend_id);
+
+		if (backend != NULL) {
+			printk("lb4 selects backend: %d %x\n", backend_id, backend->address);
+		}
 	}
 
 	if (!backend) {
@@ -415,6 +422,9 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	if (sock4_update_revnat(ctx_full, backend, &orig_key,
 				svc->rev_nat_index) < 0) {
+		if (backend != NULL) {
+			printk("sock4_update_revnat: %d %x\n", backend_id, backend->address);
+		}
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
@@ -560,6 +570,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 			.dport		= val->port,
 		};
 
+		printk("__sock4_xlate_rev hits svc return: %x %x\n", svc_key.address, svc_key.dport);
+
 		svc = lb4_lookup_service(&svc_key, true);
 		if (!svc)
 			svc = sock4_wildcard_lookup_full(&svc_key,
@@ -569,6 +581,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
+
+		printk("__sock4_xlate_revert address : %x\n", val->address);
 
 		ctx->user_ip4 = val->address;
 		ctx_set_port(ctx, val->port);
@@ -1087,6 +1101,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 			.address	= val->address,
 			.dport		= val->port,
 		};
+
 
 		svc = lb6_lookup_service(&svc_key, true);
 		if (!svc)

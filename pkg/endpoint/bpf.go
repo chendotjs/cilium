@@ -162,6 +162,8 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 		logfields.Path: headerPath,
 	}).Debug("writing header file")
 
+	e.getLogger().Infof("---------- writeHeaderfile: headerPath %v", headerPath)
+
 	// Write new contents to a temporary file which will be atomically renamed to the
 	// real file at the end of this function. This will make sure we never end up with
 	// corrupted header files on the filesystem.
@@ -169,6 +171,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open temporary file: %s", err)
 	}
+	e.getLogger().Infof("writeHeaderfile: create temp file %s", f.Name())
 	defer f.Cleanup()
 
 	// Update DNSRules if any. This is needed because DNSRules also encode allowed destination IPs
@@ -610,6 +613,7 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 	defer datapathRegenCtxt.completionCancel()
 
 	headerfileChanged, err = e.runPreCompilationSteps(regenContext)
+	e.getLogger().Infof("---------- headerfileChanged: %v", headerfileChanged)
 
 	// Keep track of the side-effects of the regeneration that need to be
 	// reverted in case of failure.
@@ -718,12 +722,15 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 			loadinfo.LogPeriodicSystemLoad(ctx, debugFunc, time.Second)
 		}
 
+		e.getLogger().Infof("-------------- realizeBPFState regenerationLevel: %v", datapathRegenCtxt.regenerationLevel)
 		// Compile and install BPF programs for this endpoint
 		if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRebuild {
+			e.getLogger().Info("---------- Regenerate endpoint BPF program")
 			err = e.owner.Datapath().Loader().CompileAndLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			e.getLogger().WithError(err).Info("Regenerated endpoint BPF program")
 			compilationExecuted = true
 		} else if datapathRegenCtxt.regenerationLevel == regeneration.RegenerateWithDatapathRewrite {
+			e.getLogger().Info("---------- Rewrote endpoint BPF program")
 			err = e.owner.Datapath().Loader().CompileOrLoad(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Rewrote endpoint BPF program")
@@ -732,6 +739,7 @@ func (e *Endpoint) realizeBPFState(regenContext *regenerationContext) (compilati
 			}
 			compilationExecuted = true
 		} else { // RegenerateWithDatapathLoad
+			e.getLogger().Info("---------- Reload endpoint BPF program")
 			err = e.owner.Datapath().Loader().ReloadDatapath(datapathRegenCtxt.completionCtx, datapathRegenCtxt.epInfoCache, &stats.datapathRealization)
 			if err == nil {
 				e.getLogger().Info("Reloaded endpoint BPF program")
@@ -772,6 +780,8 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 
 	currentDir := datapathRegenCtxt.currentDir
 	nextDir := datapathRegenCtxt.nextDir
+
+	log.Infof("-------------- runPreCompilationSteps: bpf build dir: %v, %v", currentDir, nextDir)
 
 	// In the first ever regeneration of the endpoint, the conntrack table
 	// is cleaned from the new endpoint IPs as it is guaranteed that any

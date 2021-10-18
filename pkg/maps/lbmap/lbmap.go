@@ -60,6 +60,7 @@ func New(maglev bool, maglevTableSize int) *LBBPFMap {
 	return m
 }
 
+// exmaple: {ID:8 IP:172.16.0.10 Port:9153 Backends:map[10.16.2.199:9153:19 10.16.3.179:9153:21] PrevBackendCount:2 IPv6:false Type:ClusterIP Local:false Scope:0 SessionAffinity:false SessionAffinityTimeoutSec:0 CheckSourceRange:false UseMaglev:false}
 type UpsertServiceParams struct {
 	ID                        uint16
 	IP                        net.IP
@@ -84,6 +85,8 @@ type UpsertServiceParams struct {
 // The given prevBackendCount denotes a previous service backend entries count,
 // so that the function can remove obsolete ones.
 func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
+	log.Infof("-------------- lbmap UpsertService args: %+v", *p)
+
 	var svcKey ServiceKey
 
 	if p.ID == 0 {
@@ -555,6 +558,8 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	if _, err := key.Map().OpenOrCreate(); err != nil {
 		return err
 	}
+
+	log.Infof("------- lbmap updateServiceEndpoint: %v %v", key.ToNetwork().String(), value.ToNetwork().String())
 
 	return key.Map().Update(key.ToNetwork(), value.ToNetwork())
 }

@@ -550,6 +550,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 
+	printk("handle_ipv4_from_lxc: %x %x\n", ip4->saddr, ip4->daddr);
+
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
 #ifndef ENABLE_HOST_SERVICES_FULL
@@ -777,6 +779,8 @@ ct_recreate4:
 		}
 	}
 
+	printk("handle_ipv4_from_lxc skips ipv4_local_delivery\n");
+
 #if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_ROUTING)
 	/* If the destination is the local host and per-endpoint routes are
 	 * enabled, jump to the bpf_host program to enforce ingress host policies.
@@ -856,6 +860,8 @@ to_host:
 #endif
 
 pass_to_stack:
+	printk("handle_ipv4_from_lxc reaches pass_to_stack\n");
+
 #ifdef ENABLE_ROUTING
 	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
 	if (unlikely(ret != CTX_ACT_OK))
@@ -1460,8 +1466,10 @@ skip_policy_enforcement:
 	ctx_change_type(ctx, PACKET_HOST);
 #else
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
-	if (ifindex)
+	if (ifindex) {
+		printk("redirect_ep in ipv4_policy redir to %d\n", ifindex);
 		return redirect_ep(ctx, ifindex, from_host);
+	}
 #endif /* ENABLE_ROUTING && TUNNEL_MODE && !ENABLE_NODEPORT */
 
 	return CTX_ACT_OK;
@@ -1484,6 +1492,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 
 	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &tuple,
 			  &proxy_port, from_host);
+	printk("ipv4_policy returns: %d\n", ret);
 	if (ret == POLICY_ACT_PROXY_REDIRECT) {
 		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 		proxy_redirect = true;

@@ -126,6 +126,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 		defer e.removeDirectory(backupDir)
 
 		// Make temporary directory the new endpoint directory
+		log.Infof("----------- synchronizeDirectories: rename %v to %v", tmpDir, origDir)
 		if err := os.Rename(tmpDir, origDir); err != nil {
 			if err2 := os.Rename(backupDir, origDir); err2 != nil {
 				scopedLog.WithFields(logrus.Fields{
@@ -157,6 +158,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 			"temporaryDirectory": tmpDir,
 			"originalDirectory":  origDir,
 		}).Debug("attempting to make temporary directory new directory for endpoint programs")
+		log.Infof("----------- synchronizeDirectories: rename %v to %v", tmpDir, origDir)
 		if err := os.Rename(tmpDir, origDir); err != nil {
 			return fmt.Errorf("atomic endpoint directory move failed: %s", err)
 		}
