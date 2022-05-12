@@ -2675,16 +2675,16 @@ func (c *DaemonConfig) Populate() {
 		}
 	}
 
-	switch c.IPAM {
-	case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
-		if c.EnableIPv4 {
-			c.K8sRequireIPv4PodCIDR = true
-		}
-
-		if c.EnableIPv6 {
-			c.K8sRequireIPv6PodCIDR = true
-		}
-	}
+	//switch c.IPAM {
+	//case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool:
+	//	if c.EnableIPv4 {
+	//		c.K8sRequireIPv4PodCIDR = true
+	//	}
+	//
+	//	if c.EnableIPv6 {
+	//		c.K8sRequireIPv6PodCIDR = true
+	//	}
+	//}
 
 	c.KubeProxyReplacementHealthzBindAddr = viper.GetString(KubeProxyReplacementHealthzBindAddr)
 
