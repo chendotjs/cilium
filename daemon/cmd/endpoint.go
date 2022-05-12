@@ -366,7 +366,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 		if err != nil {
 			return invalidDataError(ep, err)
 		} else if oldEp != nil {
-			return invalidDataError(ep, fmt.Errorf("IP %s is already in use", id))
+			oldEp.Logger("api").Warning("endpoint conflicted, deleting")
+			d.deleteEndpoint(oldEp)
+			// return invalidDataError(ep, fmt.Errorf("IP %s is already in use", id))
 		}
 	}
 
