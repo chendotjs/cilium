@@ -52,6 +52,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
+	ciliumcs "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -85,6 +86,8 @@ import (
 	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -1574,6 +1577,9 @@ func runDaemon() {
 		}
 		return
 	}
+	cfg, _ := clientcmd.BuildConfigFromFlags("", "")
+	cilium := NewCiliumService(kubernetes.NewForConfigOrDie(cfg), ciliumcs.NewForConfigOrDie(cfg))
+	go cilium.Run()
 
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
