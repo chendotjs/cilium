@@ -394,7 +394,7 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 	}
 
 	/* Unknown target address, drop */
-	return ACTION_UNKNOWN_ICMP6_NS;
+	return 0;
 }
 
 #ifndef SKIP_ICMPV6_NS_HANDLING

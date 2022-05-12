@@ -75,39 +75,39 @@ func (f *TerwayChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCon
 	defer netNs.Close()
 
 	var (
-		ifName                    = ""
-		disabled                  = false
-		containerIP, containerMac string
-		containerIfIndex          int
-		hostMac                   = vpcNetGatewayMac
+		ifName                                     = ""
+		disabled                                   = false
+		containerIPv4, containerIPv6, containerMac string
+		containerIfIndex                           int
+		hostMac                                    = vpcNetGatewayMac
 	)
 
+	if len(prevRes.Interfaces) == 0 {
+		err = fmt.Errorf("unable to get previous network interface: %v", prevRes)
+		return
+	}
+	ifName = prevRes.Interfaces[0].Name
+
+	for _, ip := range prevRes.IPs {
+		if ip == nil {
+			continue
+		}
+		if ip.Version == "4" {
+			containerIPv4 = ip.Address.IP.String()
+		}
+		if ip.Version == "6" {
+			containerIPv6 = ip.Address.IP.String()
+		}
+	}
+
 	if err = netNs.Do(func(_ ns.NetNS) error {
-		links, err := netlink.LinkList()
+		link, err := netlink.LinkByName(ifName)
 		if err != nil {
 			return fmt.Errorf("failed to list link %s", pluginCtx.Args.Netns)
 		}
-		for _, link := range links {
-			if link.Type() != "ipvlan" {
-				continue
-			}
-
-			ifName = link.Attrs().Name
-			containerMac = link.Attrs().HardwareAddr.String()
-
-			addrs, err := netlink.AddrList(link, netlink.FAMILY_V4)
-			if err != nil {
-				return fmt.Errorf("unable to list addresses for link %s: %s", link.Attrs().Name, err)
-			}
-			if len(addrs) < 1 {
-				return fmt.Errorf("no address configured inside container")
-			}
-
-			containerIP = addrs[0].IPNet.IP.String()
-			return nil
-		}
-
-		return fmt.Errorf("no link found inside container")
+		containerMac = link.Attrs().HardwareAddr.String()
+		containerIfIndex = link.Attrs().Index
+		return nil
 	}); err != nil {
 		return
 	}
@@ -126,7 +126,8 @@ func (f *TerwayChainer) Add(ctx context.Context, pluginCtx chainingapi.PluginCon
 	// create endpoint
 	ep := &models.EndpointChangeRequest{
 		Addressing: &models.AddressPair{
-			IPV4: containerIP,
+			IPV4: containerIPv4,
+			IPV6: containerIPv6,
 		},
 		ContainerID:       pluginCtx.Args.ContainerID,
 		State:             models.EndpointStateWaitingForIdentity,
