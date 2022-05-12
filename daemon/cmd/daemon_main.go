@@ -52,6 +52,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipmasq"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/client"
 	ciliumcs "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -1564,6 +1565,14 @@ func runDaemon() {
 		bootstrapStats.k8sInit.End(true)
 	}
 
+	cfg, _ := clientcmd.BuildConfigFromFlags("", "")
+	cilium := NewCiliumService(kubernetes.NewForConfigOrDie(cfg), ciliumcs.NewForConfigOrDie(cfg))
+	go cilium.Run()
+
+	if err := client.RegisterCRDs(); err != nil {
+		log.WithError(err).Fatal("Unable to register CRDs")
+	}
+
 	ctx, cancel := context.WithCancel(server.ServerCtx)
 	d, restoredEndpoints, err := NewDaemon(ctx, cancel,
 		WithDefaultEndpointManager(ctx, endpoint.CheckHealth),
@@ -1577,9 +1586,6 @@ func runDaemon() {
 		}
 		return
 	}
-	cfg, _ := clientcmd.BuildConfigFromFlags("", "")
-	cilium := NewCiliumService(kubernetes.NewForConfigOrDie(cfg), ciliumcs.NewForConfigOrDie(cfg))
-	go cilium.Run()
 
 	// This validation needs to be done outside of the agent until
 	// datapath.NodeAddressing is used consistently across the code base.
