@@ -40,13 +40,23 @@ func getEntryProgInstructions(fd int) asm.Instructions {
 	}
 }
 
-// setupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
+func getIngressEntryProgInstructions(fd int) asm.Instructions {
+	return asm.Instructions{
+		asm.LoadMapPtr(asm.R2, fd),
+		asm.Mov.Imm(asm.R3, 1),
+		asm.FnTailCall.Call(),
+		asm.Mov.Imm(asm.R0, 0),
+		asm.Return(),
+	}
+}
+
+// SetupIpvlanInRemoteNs creates a tail call map, renames the netdevice inside
 // the target netns and attaches a BPF program to it on egress path which
 // then jumps into the tail call map index 0.
 //
 // NB: Do not close the returned map before it has been pinned. Otherwise,
 // the map will be destroyed.
-func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.Map, error) {
+func SetupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string, ingress, egress bool) (*ebpf.Map, error) {
 	rl := unix.Rlimit{
 		Cur: unix.RLIM_INFINITY,
 		Max: unix.RLIM_INFINITY,
@@ -61,7 +71,7 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.M
 		Type:       ebpf.ProgramArray,
 		KeySize:    4,
 		ValueSize:  4,
-		MaxEntries: 1,
+		MaxEntries: 2,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create root BPF map for %q: %s", dstIfName, err)
@@ -95,33 +105,63 @@ func setupIpvlanInRemoteNs(netNs ns.NetNS, srcIfName, dstIfName string) (*ebpf.M
 			return fmt.Errorf("failed to create clsact qdisc on %q: %s", dstIfName, err)
 		}
 
-		prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
-			Type:         ebpf.SchedCLS,
-			Instructions: getEntryProgInstructions(m.FD()),
-			License:      "ASL2",
-		})
-		if err != nil {
-			return fmt.Errorf("failed to load root BPF prog for %q: %s", dstIfName, err)
+		if egress {
+			prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+				Type:         ebpf.SchedCLS,
+				Instructions: getEntryProgInstructions(m.FD()),
+				License:      "ASL2",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to load root BPF prog for %q: %s", dstIfName, err)
+			}
+
+			filterAttrs := netlink.FilterAttrs{
+				LinkIndex: ipvlan.Attrs().Index,
+				Parent:    netlink.HANDLE_MIN_EGRESS,
+				Handle:    netlink.MakeHandle(0, 1),
+				Protocol:  3,
+				Priority:  1,
+			}
+			filter := &netlink.BpfFilter{
+				FilterAttrs:  filterAttrs,
+				Fd:           prog.FD(),
+				Name:         "polEntry",
+				DirectAction: true,
+			}
+			if err = netlink.FilterAdd(filter); err != nil {
+				prog.Close()
+				return fmt.Errorf("failed to create cls_bpf filter on %q: %s", dstIfName, err)
+			}
 		}
 
-		filterAttrs := netlink.FilterAttrs{
-			LinkIndex: ipvlan.Attrs().Index,
-			Parent:    netlink.HANDLE_MIN_EGRESS,
-			Handle:    netlink.MakeHandle(0, 1),
-			Protocol:  3,
-			Priority:  1,
-		}
-		filter := &netlink.BpfFilter{
-			FilterAttrs:  filterAttrs,
-			Fd:           prog.FD(),
-			Name:         "polEntry",
-			DirectAction: true,
-		}
-		if err = netlink.FilterAdd(filter); err != nil {
-			prog.Close()
-			return fmt.Errorf("failed to create cls_bpf filter on %q: %s", dstIfName, err)
-		}
+		if ingress {
+			prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+				Type:         ebpf.SchedCLS,
+				Instructions: getIngressEntryProgInstructions(m.FD()),
+				License:      "ASL2",
+			})
+			if err != nil {
+				return fmt.Errorf("failed to load root BPF prog for %q: %s", dstIfName, err)
+			}
 
+			filterAttrs := netlink.FilterAttrs{
+				LinkIndex: ipvlan.Attrs().Index,
+				Parent:    netlink.HANDLE_MIN_INGRESS,
+				Handle:    netlink.MakeHandle(0, 1),
+				Protocol:  3,
+				Priority:  1,
+			}
+			filter := &netlink.BpfFilter{
+				FilterAttrs:  filterAttrs,
+				Fd:           prog.FD(),
+				Name:         "ingressPolEntry",
+				DirectAction: true,
+			}
+			if err = netlink.FilterAdd(filter); err != nil {
+				prog.Close()
+				return fmt.Errorf("failed to create cls_bpf filter on %q: %s", dstIfName, err)
+			}
+		}
 		return nil
 	})
 	if err != nil {
@@ -217,7 +257,7 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 
 // CreateAndSetupIpvlanSlave creates an ipvlan slave device for the given
 // master device, moves it to the given network namespace, and finally
-// initializes it (see setupIpvlanInRemoteNs).
+// initializes it (see SetupIpvlanInRemoteNs).
 func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mtu int, masterDev int, mode string, ep *models.EndpointChangeRequest) (*ebpf.Map, error) {
 	var tmpIfName string
 
@@ -236,7 +276,7 @@ func CreateAndSetupIpvlanSlave(id string, slaveIfName string, netNs ns.NetNS, mt
 		return nil, fmt.Errorf("unable to move ipvlan slave '%v' to netns: %s", link, err)
 	}
 
-	m, err := setupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName)
+	m, err := SetupIpvlanInRemoteNs(netNs, tmpIfName, slaveIfName, false, true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to setup ipvlan slave in remote netns: %w", err)
 	}
