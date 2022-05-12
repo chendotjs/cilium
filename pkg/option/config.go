@@ -242,6 +242,9 @@ const (
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
+	// EnableInClusterLoadBalance enable short circuit for in cluster traffic to externalIP and loadBalancerIP
+	EnableInClusterLoadBalance = "enable-in-cluster-loadbalance"
+
 	// EnableSVCSourceRangeCheck enables check of service source range checks
 	EnableSVCSourceRangeCheck = "enable-svc-source-range-check"
 
@@ -1645,6 +1648,9 @@ type DaemonConfig struct {
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
+	// EnableInClusterLoadBalance enable short circuit for in cluster traffic to externalIP and loadBalancerIP
+	EnableInClusterLoadBalance bool
+
 	// EnableSVCSourceRangeCheck enables check of loadBalancerSourceRanges
 	EnableSVCSourceRangeCheck bool
 
@@ -2400,6 +2406,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
+	c.EnableInClusterLoadBalance = viper.GetBool(EnableInClusterLoadBalance)
 	c.EnableSVCSourceRangeCheck = viper.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = viper.GetBool(EnableHostLegacyRouting)

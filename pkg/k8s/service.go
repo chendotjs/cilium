@@ -439,7 +439,7 @@ func NewService(ips []net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRa
 		loadBalancerSourceCIDRs[cidr.String()] = cidr
 	}
 
-	if option.Config.EnableNodePort {
+	if option.Config.EnableNodePort || option.Config.EnableInClusterLoadBalance {
 		k8sExternalIPs = parseIPs(externalIPs)
 		k8sLoadBalancerIPs = parseIPs(loadBalancerIPs)
 	}
